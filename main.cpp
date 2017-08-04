@@ -4,6 +4,7 @@
 #include <cctype>
 #include <string>
 #include <memory>
+#include "utils.h"
 
 enum State {
     ST_SPACE,
@@ -58,6 +59,7 @@ std::vector<std::string> readWords(std::string inputFilename) {
 struct CharAfter {
     unsigned char c;
     int times;
+    double probability;
 };
 
 struct CharEntry {
@@ -85,7 +87,7 @@ CharEntry *findCharEntry(unsigned char c, std::vector<CharEntry*> chars) {
 
 std::vector<CharEntry*> readChars(std::string inputFilename) {
     std::vector<CharEntry*> chars;
-    std::fstream inputStream("input.txt");
+    std::fstream inputStream(inputFilename);
     if(!inputStream.is_open()) {
         std::cout << "Error" << std::endl;
     }
@@ -114,18 +116,51 @@ std::vector<CharEntry*> readChars(std::string inputFilename) {
     return chars;
 }
 
+void calculateProbabilities(std::vector<CharEntry*> chars) {
+    for(CharEntry *entry: chars) {
+        long sum = 0;
+        for(CharAfter *after: entry->charsAfter) {
+            sum += after->times;
+        }
+        for(CharAfter *after: entry->charsAfter) {
+            after->probability = (double)after->times / sum;
+        }
+    }
+}
+
+void generateText(std::string outputFilename, std::vector<CharEntry*> chars, int length) {
+    std::ofstream outStream(outputFilename);
+    CharEntry *currentChar = chars[0];
+    for(int i = 0; i < length; i++) {
+        std::vector<double> weights;
+        for(CharAfter *after: currentChar->charsAfter) {
+            weights.push_back(after->probability);
+        }
+        int nextCharIndex = utils::weightedRandom(weights);
+        unsigned char c = currentChar->charsAfter[nextCharIndex]->c;
+        outStream << c;
+        currentChar = findCharEntry(c, chars);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     std::vector<CharEntry*> chars = readChars(argv[1]);
+    calculateProbabilities(chars);
     std::ofstream outStream("output.txt");
+
     for(CharEntry *entry: chars) {
-        outStream << entry->c << "\n";
+        std::string outputChar1;
+        entry->c == 10 ? outputChar1 = "\n" : outputChar1 += entry->c;
+        outStream << "symbol: (" << std::to_string((int)entry->c) << "): " << outputChar1 << "\n";
         for(CharAfter *after: entry->charsAfter) {
-            std::string outputChar;
-            after->c == '\n' ? outputChar = "\n" : outputChar += after->c;
-            outStream << "    " << outputChar << ": " << after->times << "\n";
+            std::string outputChar2;
+            after->c == 10 ? outputChar2 = "\n" : outputChar2 += after->c;
+            outStream << "    (" << std::to_string((int)after->c) << ") " << outputChar2 << ": " << after->probability*100 << "%" << "\n";
         }
     }
+
+    generateText("text.txt", chars, 10000);
 
     return 0;
 

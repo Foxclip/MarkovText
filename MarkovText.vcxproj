@@ -21,6 +21,9 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="utils.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{62f727ac-868d-45f9-8a86-45276b34ebb1}</ProjectGuid>
     <RootNamespace>MarkovText</RootNamespace>
