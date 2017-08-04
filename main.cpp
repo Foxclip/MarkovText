@@ -65,19 +65,19 @@ struct CharEntry {
     std::vector<CharAfter*> charsAfter;
 };
 
-bool charEntryExists(char c, std::vector<CharEntry*> chars) {
-    for(CharEntry *entry: chars) {
-        if(entry->c == c) {
-            return true;
-        }
-    }
-    return false;
-}
-
-CharAfter *findCharEntry(char c, std::vector<CharAfter*> chars) {
+CharAfter *findCharAfter(unsigned char c, std::vector<CharAfter*> chars) {
     for(CharAfter *after: chars) {
         if(after->c == c) {
             return after;
+        }
+    }
+    return nullptr;
+}
+
+CharEntry *findCharEntry(unsigned char c, std::vector<CharEntry*> chars) {
+    for(CharEntry *entry: chars) {
+        if(entry->c == c) {
+            return entry;
         }
     }
     return nullptr;
@@ -89,11 +89,11 @@ std::vector<CharEntry*> readChars(std::string inputFilename) {
     if(!inputStream.is_open()) {
         std::cout << "Error" << std::endl;
     }
+    CharEntry *previousEntry = nullptr;
     unsigned char c;
     while(inputStream >> std::noskipws >> c) {
         if(chars.size() > 0) {
-            CharEntry *previousEntry = chars[chars.size() - 1];
-            CharAfter *thisChar = findCharEntry(c, previousEntry->charsAfter);
+            CharAfter *thisChar = findCharAfter(c, previousEntry->charsAfter);
             if(thisChar) {
                 thisChar->times++;
             } else {
@@ -102,11 +102,14 @@ std::vector<CharEntry*> readChars(std::string inputFilename) {
                 previousEntry->charsAfter.push_back(after);
             }
         }
-        if(!charEntryExists(c, chars)) {
-            CharEntry *entry = new CharEntry();
-            *entry = {c, {}};
-            chars.push_back(entry);
+        CharEntry *currentEntry = findCharEntry(c, chars);
+        if(!currentEntry) {
+            CharEntry *newEntry = new CharEntry();
+            *newEntry = {c, {}};
+            chars.push_back(newEntry);
+            currentEntry = newEntry;
         }
+        previousEntry = currentEntry;
     }
     return chars;
 }
