@@ -3,6 +3,7 @@
 #include <vector>
 #include <cctype>
 #include <string>
+#include <memory>
 
 enum State {
     ST_SPACE,
@@ -16,7 +17,7 @@ int iscyr(int c) {
 
 std::vector<std::string> readWords(std::string inputFilename) {
     std::vector<std::string> words;
-    std::fstream inputStream("input.txt");
+    std::fstream inputStream(inputFilename);
     if(!inputStream.is_open()) {
         std::cout << "Error" << std::endl;
     }
@@ -54,21 +55,68 @@ std::vector<std::string> readWords(std::string inputFilename) {
     return words;
 }
 
+struct CharAfter {
+    unsigned char c;
+    int times;
+};
+
+struct CharEntry {
+    unsigned char c;
+    std::vector<CharAfter> charsAfter;
+};
+
+bool charEntryExists(char c, std::vector<CharEntry> chars) {
+    for(CharEntry entry: chars) {
+        if(entry.c == c) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::unique_ptr<CharAfter> findCharEntry(char c, std::vector<CharAfter> chars) {
+    for(CharAfter after: chars) {
+        if(after.c == c) {
+            return std::unique_ptr<CharAfter>(&after);
+        }
+    }
+    return nullptr;
+}
+
+std::vector<CharEntry> readChars(std::string inputFilename) {
+    std::vector<CharEntry> chars;
+    std::fstream inputStream("input.txt");
+    if(!inputStream.is_open()) {
+        std::cout << "Error" << std::endl;
+    }
+    unsigned char c;
+    while(inputStream >> std::noskipws >> c) {
+        if(chars.size() > 0) {
+            std::unique_ptr<CharEntry> previousEntry = std::unique_ptr<CharEntry>(&chars[chars.size() - 1]);
+            std::unique_ptr<CharAfter> thisChar = findCharEntry(c, previousEntry->charsAfter);
+            if(thisChar) {
+                thisChar->times++;
+            } else {
+                previousEntry->charsAfter.push_back({c, 1});
+            }
+        }
+        if(!charEntryExists(c, chars)) {
+            chars.push_back({c, {}});
+        }
+    }
+    return chars;
+}
+
 int main(int argc, char *argv[]) {
 
-    std::vector<std::string> words = readWords(argv[1]);
-    for(std::string word: words) {
-        std::cout << word << "\n";
-    }
-    std::fstream writeStream("write.txt");
-    writeStream << "test";
-    std::cout << "Words read: " << words.size() << "\n";
-    std::cout << "Writing words to file...\n";
+    std::vector<CharEntry> chars = readChars(argv[1]);
     std::ofstream outStream("output.txt");
-    for(std::string word: words) {
-        outStream << word << "\n";
+    for(CharEntry entry: chars) {
+        outStream << entry.c << "\n";
+        for(CharAfter after: entry.charsAfter) {
+            outStream << "    " << after.c << ": " << after.times << "\n";
+        }
     }
-    std::cout << "Done\n";
 
     return 0;
 
