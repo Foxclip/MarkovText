@@ -62,29 +62,29 @@ struct CharAfter {
 
 struct CharEntry {
     unsigned char c;
-    std::vector<CharAfter> charsAfter;
+    std::vector<CharAfter*> charsAfter;
 };
 
-bool charEntryExists(char c, std::vector<CharEntry> chars) {
-    for(CharEntry entry: chars) {
-        if(entry.c == c) {
+bool charEntryExists(char c, std::vector<CharEntry*> chars) {
+    for(CharEntry *entry: chars) {
+        if(entry->c == c) {
             return true;
         }
     }
     return false;
 }
 
-std::unique_ptr<CharAfter> findCharEntry(char c, std::vector<CharAfter> chars) {
-    for(CharAfter after: chars) {
-        if(after.c == c) {
-            return std::unique_ptr<CharAfter>(&after);
+CharAfter *findCharEntry(char c, std::vector<CharAfter*> chars) {
+    for(CharAfter *after: chars) {
+        if(after->c == c) {
+            return after;
         }
     }
     return nullptr;
 }
 
-std::vector<CharEntry> readChars(std::string inputFilename) {
-    std::vector<CharEntry> chars;
+std::vector<CharEntry*> readChars(std::string inputFilename) {
+    std::vector<CharEntry*> chars;
     std::fstream inputStream("input.txt");
     if(!inputStream.is_open()) {
         std::cout << "Error" << std::endl;
@@ -92,16 +92,20 @@ std::vector<CharEntry> readChars(std::string inputFilename) {
     unsigned char c;
     while(inputStream >> std::noskipws >> c) {
         if(chars.size() > 0) {
-            std::unique_ptr<CharEntry> previousEntry = std::unique_ptr<CharEntry>(&chars[chars.size() - 1]);
-            std::unique_ptr<CharAfter> thisChar = findCharEntry(c, previousEntry->charsAfter);
+            CharEntry *previousEntry = chars[chars.size() - 1];
+            CharAfter *thisChar = findCharEntry(c, previousEntry->charsAfter);
             if(thisChar) {
                 thisChar->times++;
             } else {
-                previousEntry->charsAfter.push_back({c, 1});
+                CharAfter *after = new CharAfter();
+                *after = {c, 1};
+                previousEntry->charsAfter.push_back(after);
             }
         }
         if(!charEntryExists(c, chars)) {
-            chars.push_back({c, {}});
+            CharEntry *entry = new CharEntry();
+            *entry = {c, {}};
+            chars.push_back(entry);
         }
     }
     return chars;
@@ -109,12 +113,14 @@ std::vector<CharEntry> readChars(std::string inputFilename) {
 
 int main(int argc, char *argv[]) {
 
-    std::vector<CharEntry> chars = readChars(argv[1]);
+    std::vector<CharEntry*> chars = readChars(argv[1]);
     std::ofstream outStream("output.txt");
-    for(CharEntry entry: chars) {
-        outStream << entry.c << "\n";
-        for(CharAfter after: entry.charsAfter) {
-            outStream << "    " << after.c << ": " << after.times << "\n";
+    for(CharEntry *entry: chars) {
+        outStream << entry->c << "\n";
+        for(CharAfter *after: entry->charsAfter) {
+            std::string outputChar;
+            after->c == '\n' ? outputChar = "\n" : outputChar += after->c;
+            outStream << "    " << outputChar << ": " << after->times << "\n";
         }
     }
 
