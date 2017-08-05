@@ -18,6 +18,13 @@ int iscyr(int c) {
 
 typedef std::basic_string<unsigned char> ustring;
 
+std::ostream& operator << (std::ostream& stream, const ustring& str) {
+    if(const auto len = str.size()) {
+        stream.write(reinterpret_cast<const char*>(&str[0]), len);
+    }
+    return stream;
+}
+
 std::vector<std::string> readWords(std::string inputFilename) {
     std::vector<std::string> words;
     std::fstream inputStream(inputFilename);
@@ -66,7 +73,7 @@ struct EntryAfter {
 
 struct TextEntry {
     ustring c;
-    std::vector<EntryAfter*> charsAfter;
+    std::vector<EntryAfter*> listAfter;
 };
 
 EntryAfter *findEntryAfter(ustring c, std::vector<EntryAfter*> list) {
@@ -93,70 +100,82 @@ ustring charToUstring(unsigned char c) {
     return str;
 }
 
-std::vector<TextEntry*> readChars(std::string inputFilename) {
-    std::vector<TextEntry*> chars;
+std::vector<TextEntry*> readChars(std::string inputFilename, int span) {
+    std::vector<TextEntry*> entries;
     std::fstream inputStream(inputFilename);
     if(!inputStream.is_open()) {
         std::cout << "Error" << std::endl;
     }
     TextEntry *previousEntry = nullptr;
+    ustring charBuffer;
     unsigned char c;
     while(inputStream >> std::noskipws >> c) {
         ustring cstr = charToUstring(c);
-        if(chars.size() > 0) {
-            EntryAfter *thisChar = findEntryAfter(cstr, previousEntry->charsAfter);
-            if(thisChar) {
-                thisChar->times++;
+        if(charBuffer.size() >= 2) {
+            TextEntry *baseEntry = findTextEntry(charBuffer, entries);
+            if(!baseEntry) {
+                TextEntry *newTextEntry = new TextEntry();
+                *newTextEntry = {charBuffer, {}};
+                entries.push_back(newTextEntry);
+                baseEntry = newTextEntry;
+            }
+            EntryAfter *entryAfter = findEntryAfter(cstr, baseEntry->listAfter);
+            if(entryAfter) {
+                entryAfter->times++;
             } else {
-                EntryAfter *after = new EntryAfter();
-                *after = {cstr, 1};
-                previousEntry->charsAfter.push_back(after);
+                EntryAfter *newEntryAfter = new EntryAfter();
+                *newEntryAfter = {cstr, 1};
+                baseEntry->listAfter.push_back(newEntryAfter);
             }
         }
-        TextEntry *currentEntry = findTextEntry(cstr, chars);
-        if(!currentEntry) {
-            TextEntry *newEntry = new TextEntry();
-            *newEntry = {cstr, {}};
-            chars.push_back(newEntry);
-            currentEntry = newEntry;
+        charBuffer += c;
+        if(charBuffer.size() > 2) {
+            charBuffer = charBuffer.substr(1, 2);
         }
-        previousEntry = currentEntry;
     }
-    return chars;
+    return entries;
 }
 
 void calculateProbabilities(std::vector<TextEntry*> chars) {
     for(TextEntry *entry: chars) {
         long sum = 0;
-        for(EntryAfter *after: entry->charsAfter) {
+        for(EntryAfter *after: entry->listAfter) {
             sum += after->times;
         }
-        for(EntryAfter *after: entry->charsAfter) {
+        for(EntryAfter *after: entry->listAfter) {
             after->probability = (double)after->times / sum;
         }
     }
 }
 
-void generateText(std::string outputFilename, std::vector<TextEntry*> chars, int length) {
-    std::ofstream outStream(outputFilename);
-    TextEntry *currentChar = chars[0];
-    for(int i = 0; i < length; i++) {
+void generateText(std::string outputFilename, std::vector<TextEntry*> entries, int span, int textLength) {
+    TextEntry *currentEntry = entries[0];
+    std::ofstream clearOutputFile(outputFilename);
+    clearOutputFile.close();
+    for(int i = 0; i < textLength; i++) {
+        if(!currentEntry) {
+            currentEntry = entries[utils::randomBetween(0, entries.size())];
+        }
         std::vector<double> weights;
-        for(EntryAfter *after: currentChar->charsAfter) {
+        for(EntryAfter *after: currentEntry->listAfter) {
             weights.push_back(after->probability);
         }
         int nextCharIndex = utils::weightedRandom(weights);
-        ustring c = currentChar->charsAfter[nextCharIndex]->c;
-        outStream << c[0];
-        currentChar = findTextEntry(c, chars);
+        ustring c = currentEntry->listAfter[nextCharIndex]->c;
+        std::ofstream outStream(outputFilename, std::ios_base::app);
+        outStream << c;
+        outStream.close();
+        currentEntry = findTextEntry((currentEntry->c + c).substr(1, 2), entries);
     }
 }
 
 int main(int argc, char *argv[]) {
 
-    std::vector<TextEntry*> chars = readChars(argv[1]);
-    calculateProbabilities(chars);
-    generateText("text.txt", chars, 10000);
+    setlocale(LC_CTYPE, "Russian");
+
+    std::vector<TextEntry*> entries = readChars(argv[1], 2);
+    calculateProbabilities(entries);
+    generateText("text.txt", entries, 2, 10000);
 
     return 0;
 
