@@ -111,7 +111,7 @@ std::vector<TextEntry*> readChars(std::string inputFilename, int span) {
     unsigned char c;
     while(inputStream >> std::noskipws >> c) {
         ustring cstr = charToUstring(c);
-        if(charBuffer.size() >= 2) {
+        if(charBuffer.size() >= span) {
             TextEntry *baseEntry = findTextEntry(charBuffer, entries);
             if(!baseEntry) {
                 TextEntry *newTextEntry = new TextEntry();
@@ -129,8 +129,8 @@ std::vector<TextEntry*> readChars(std::string inputFilename, int span) {
             }
         }
         charBuffer += c;
-        if(charBuffer.size() > 2) {
-            charBuffer = charBuffer.substr(1, 2);
+        if(charBuffer.size() > span) {
+            charBuffer = charBuffer.substr(1, span);
         }
     }
     return entries;
@@ -165,7 +165,7 @@ void generateText(std::string outputFilename, std::vector<TextEntry*> entries, i
         std::ofstream outStream(outputFilename, std::ios_base::app);
         outStream << c;
         outStream.close();
-        currentEntry = findTextEntry((currentEntry->c + c).substr(1, 2), entries);
+        currentEntry = findTextEntry((currentEntry->c + c).substr(1, span), entries);
     }
 }
 
@@ -173,9 +173,13 @@ int main(int argc, char *argv[]) {
 
     setlocale(LC_CTYPE, "Russian");
 
-    std::vector<TextEntry*> entries = readChars(argv[1], 2);
+    int span = 4;
+    std::cout << "Reading chars..." << "\n";
+    std::vector<TextEntry*> entries = readChars(argv[1], span);
+    std::cout << "Calculating probabilities..." << "\n";
     calculateProbabilities(entries);
-    generateText("text.txt", entries, 2, 10000);
+    std::cout << "Generating text..." << "\n";
+    generateText("text.txt", entries, span, 10000);
 
     return 0;
 
